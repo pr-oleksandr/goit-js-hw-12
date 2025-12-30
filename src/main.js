@@ -1,43 +1,54 @@
 import iziToast from 'izitoast';
 import 'izitoast/dist/css/iziToast.min.css';
 
-import SimpleLightbox from 'simplelightbox';
-import 'simplelightbox/dist/simple-lightbox.min.css';
-
 import { getImagesByQuery } from './js/pixabay-api';
 import {
-  createGallery,
+  showLoadMoreButton,
+  hideLoadMoreButton,
+  renderFirstHtml,
+  renderSecondHTML,
   clearGallery,
   showLoader,
   hideLoader,
+  smoothScroll,
 } from './js/render-functions';
 
 const form = document.querySelector('.form');
 const input = document.querySelector('.form-input');
 const loadBtn = document.querySelector('#load-btn');
 const list = document.querySelector('.gallery');
-const lightbox = new SimpleLightbox('.gallery a', {
-  captionsData: 'alt',
-  captionDelay: 250,
-});
 
 form.addEventListener('submit', handlerSubmit);
 loadBtn.addEventListener('click', onClick);
-loadBtn.classList.replace('search-btn', 'load-btn-hidden');
 
 hideLoader();
 
 let page = 1;
+let currentValue = '';
 
 async function handlerSubmit(event) {
   event.preventDefault();
+  hideLoadMoreButton();
 
-  const searchValue = input.value;
+  page = 1;
+
+  currentValue = input.value.trim();
+
+  if (!currentValue) {
+    iziToast.show({
+      message: 'Ну і шо мені шукати? Напиши шось',
+      position: 'topRight',
+      backgroundColor: '#ef4040',
+      messageColor: '#fff',
+    });
+    return;
+  }
+
   clearGallery();
   showLoader();
 
   try {
-    const res = await getImagesByQuery(searchValue, page);
+    const res = await getImagesByQuery(currentValue, page);
 
     if (res.data.hits.length === 0) {
       iziToast.show({
@@ -48,9 +59,8 @@ async function handlerSubmit(event) {
         messageColor: '#fff',
       });
     } else {
-      list.innerHTML = createGallery(res.data.hits);
-      lightbox.refresh();
-      loadBtn.classList.replace('load-btn-hidden', 'search-btn');
+      renderFirstHtml(res.data.hits);
+      showLoadMoreButton();
     }
   } catch (error) {
     iziToast.show({
@@ -66,17 +76,23 @@ async function handlerSubmit(event) {
 
 async function onClick(event) {
   page += 1;
-  loadBtn.disabled = true;
+  hideLoadMoreButton();
+  showLoader();
   try {
-    const searchValue = input.value;
-    const res = await getImagesByQuery(searchValue, page);
-    const totalPages = Math.floor(res.data.total / res.data.hits.length);
+    const res = await getImagesByQuery(currentValue, page);
+    const totalPages = Math.ceil(res.data.totalHits / 15);
 
-    list.insertAdjacentHTML('beforeend', createGallery(res.data.hits));
-    lightbox.refresh();
+    renderSecondHTML(res.data.hits);
+    smoothScroll();
 
-    if (page >= totalPages) {
-      loadBtn.classList.replace('search-btn', 'load-btn-hidden');
+    if (page < totalPages) {
+      showLoadMoreButton();
+    } else {
+      iziToast.show({
+        message: 'We are sorry, but you have reached the end of search results',
+        position: 'topRight',
+        backgroundColor: '#6c8cff',
+      });
     }
   } catch (error) {
     iziToast.show({
@@ -86,6 +102,6 @@ async function onClick(event) {
       messageColor: '#fff',
     });
   } finally {
-    loadBtn.disabled = false;
+    hideLoader();
   }
 }

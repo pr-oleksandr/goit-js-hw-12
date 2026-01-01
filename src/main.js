@@ -24,6 +24,7 @@ loadBtn.addEventListener('click', onClick);
 hideLoader();
 
 let page = 1;
+let totalPages;
 let currentValue = '';
 
 async function handlerSubmit(event) {
@@ -31,6 +32,7 @@ async function handlerSubmit(event) {
   hideLoadMoreButton();
 
   page = 1;
+  totalPages = null;
 
   currentValue = input.value.trim();
 
@@ -60,7 +62,20 @@ async function handlerSubmit(event) {
       });
     } else {
       renderFirstHtml(res.data.hits);
-      showLoadMoreButton();
+      const perPage = res.config.params.per_page;
+
+      totalPages = Math.ceil(res.data.totalHits / perPage);
+
+      if (page < totalPages) {
+        showLoadMoreButton();
+      } else {
+        iziToast.show({
+          message:
+            'We are sorry, but you have reached the end of search results',
+          position: 'topRight',
+          backgroundColor: '#6c8cff',
+        });
+      }
     }
   } catch (error) {
     iziToast.show({
@@ -80,7 +95,6 @@ async function onClick(event) {
   showLoader();
   try {
     const res = await getImagesByQuery(currentValue, page);
-    const totalPages = Math.ceil(res.data.totalHits / 15);
 
     renderSecondHTML(res.data.hits);
     smoothScroll();
